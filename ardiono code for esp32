@@ -1,0 +1,120 @@
+#include <LiquidCrystal.h>
+
+#include <LiquidCrystal.h>
+
+/******** BLYNK SETTINGS ********/
+
+#define BLYNK_TEMPLATE_ID "TMPL3ZcW8WNJe"
+#define BLYNK_TEMPLATE_NAME "Wireless EV charging"
+#define BLYNK_AUTH_TOKEN "z0LN5lQb5GxV1GcTGLGijZwnWZrtW7bH"
+
+#define BLYNK_PRINT Serial
+
+/******** LIBRARIES ********/
+
+#include <WiFi.h>
+#include <BlynkSimpleEsp32.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+/******** WIFI SETTINGS ********/
+
+char ssid[] = "Redmi Note 12";
+char pass[] = "nnnnnnnn";
+
+/******** LCD SETUP ********/
+
+LiquidCrystal_I2C lcd(0x27,16,2);
+
+/******** PIN DEFINITIONS ********/
+
+#define voltagePin 34
+#define currentPin 35
+#define relayPin 26
+
+/******** VARIABLES ********/
+
+float voltage = 0;
+float current = 0;
+float power = 0;
+float energy = 0;
+float cost = 0;
+
+float rate = 8.0; // Rs per unit
+
+BlynkTimer timer;
+
+/******** RELAY CONTROL FROM BLYNK ********/
+
+BLYNK_WRITE(V5)
+{
+int relayState = param.asInt();
+digitalWrite(relayPin, relayState);
+}
+
+/******** SENSOR READING FUNCTION ********/
+
+void sendData()
+{
+
+/* Voltage Reading */
+
+int v = analogRead(voltagePin);
+voltage = v * (25.0 / 4095.0);
+
+
+/* Current Reading */
+
+int c = analogRead(currentPin);
+current = c * (5.0 / 4095.0);
+
+
+/* Power Calculation */
+
+power = voltage * current;
+
+
+/* Energy Calculation */
+
+energy = energy + (power / 3600000.0);
+
+
+/* Billing Calculation */
+
+cost = energy * rate;
+
+
+/* Auto Cutoff */
+
+if(voltage > 13.5)
+{
+digitalWrite(relayPin, LOW);
+}
+
+
+/* Send Data to Blynk */
+
+Blynk.virtualWrite(V0, voltage);
+Blynk.virtualWrite(V1, current);
+Blynk.virtualWrite(V2, power);
+Blynk.virtualWrite(V3, energy);
+Blynk.virtualWrite(V4, cost);
+
+/* LCD Display */
+
+lcd.clear();
+
+lcd.setCursor(0,0);
+lcd.print("V:");
+lcd.print(voltage,1);
+
+lcd.print(" I:");
+lcd.print(current,1);
+
+lcd.setCursor(0,1);
+lcd.print("Rs:");
+lcd.print(cost,2);
+
+}
+
+/******** SETUP ********/
